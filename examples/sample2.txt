@@ -1,0 +1,9 @@
+Hello     World!
+Python 3.14: test @#$%^&*()
+A A A     B-B-B___C...C
+Tabs	and spaces   mixed!
+1234567890  000111222333
+AaBbCc XxYyZz
+Special: !@#$%^&*()_+-=[]{};:',.<>/?
+Repeated: ABCABCABCABCABC
+End...   Done!!!
