@@ -1,3 +1,4 @@
+
 """Main program for Modified Huffman Compression."""
 
 from pathlib import Path
@@ -6,6 +7,13 @@ from src.compression import encode_file
 from src.decoder import decompress_file_to_path
 from src.file_format import COMPRESSED_EXTENSION, write_compressed_file
 
+from file_manager import (
+    select_input_file,
+    select_compressed_input,
+    select_compressed_output,
+    select_decompressed_output
+)
+
 
 SEPARATOR = "=" * 64
 SUB_SEPARATOR = "-" * 64
@@ -13,20 +21,21 @@ SUB_SEPARATOR = "-" * 64
 
 def print_header(title: str) -> None:
     """Display a formatted section header."""
+
     print(f"\n{SEPARATOR}")
     print(f"{title:^{len(SEPARATOR)}}")
     print(SEPARATOR)
 
 
 def compress_file() -> None:
-    """Ask for a text file, compress it, and write a binary .mhuf file."""
+    """Select a file, compress it, and save the binary result."""
 
-    input_path = input(
-        "\nEnter the path of the text file to compress: "
-    ).strip().strip('"')
+    print("\nSelect the file you want to compress.")
+
+    input_path = select_input_file()
 
     if not input_path:
-        print("\nError: No input file path provided.")
+        print("\nFile selection cancelled.")
         return
 
     input_file = Path(input_path)
@@ -35,36 +44,46 @@ def compress_file() -> None:
         print("\nError: The input file does not exist.")
         return
 
-    output_path = input(
-        "Enter the output path for the compressed result "
-        f"(e.g. examples/compressed_sample{COMPRESSED_EXTENSION}): "
-    ).strip().strip('"')
+    print("\nSelect where to save the compressed file.")
+
+    output_path = select_compressed_output()
 
     if not output_path:
-        print("\nError: No output path provided.")
+        print("\nSaving cancelled.")
         return
 
     output_file = Path(output_path)
-    if output_file.suffix.lower() != COMPRESSED_EXTENSION:
+
+    # Ensure the correct compressed file extension.
+    if output_file.suffix.lower() != COMPRESSED_EXTENSION.lower():
         output_file = output_file.with_suffix(COMPRESSED_EXTENSION)
 
     try:
+        # Prevent overwriting the original input file.
         if input_file.resolve() == output_file.resolve():
             print("\nError: Output path must differ from input path.")
             return
 
+        # Encode the input file.
         result = encode_file(input_file)
+
         print("\nHuffman Codes:")
+
         for symbol, code in result.codes.items():
             print(f"{repr(symbol):>8} : {code}")
 
         print("\nOriginal Codes:")
+
         for symbol, code in result.original_codes.items():
             print(f"{repr(symbol):>8} : {code}")
 
+        # Create the output directory if necessary.
         output_file.parent.mkdir(parents=True, exist_ok=True)
+
+        # Save the compressed data using the binary file format.
         write_compressed_file(output_file, result)
 
+        # Calculate file sizes.
         original_size = input_file.stat().st_size
         bitstream_bits = len(result.bitstream)
         actual_output_size = output_file.stat().st_size
@@ -105,25 +124,39 @@ def compress_file() -> None:
             actual_ratio = actual_output_size / original_size * 100
             actual_saving = 100 - actual_ratio
 
-            print(f"{'Packed bitstream ratio:':<28} {packed_ratio:>8.2f}%")
-            print(f"{'Packed bitstream saved:':<28} {packed_saving:>8.2f}%")
+            print(
+                f"{'Packed bitstream ratio:':<28} "
+                f"{packed_ratio:>8.2f}%"
+            )
+            print(
+                f"{'Packed bitstream saved:':<28} "
+                f"{packed_saving:>8.2f}%"
+            )
             print()
-            print(f"{'Binary file ratio:':<28} {actual_ratio:>8.2f}%")
-            print(f"{'Binary space saved:':<28} {actual_saving:>8.2f}%")
+            print(
+                f"{'Binary file ratio:':<28} "
+                f"{actual_ratio:>8.2f}%"
+            )
+            print(
+                f"{'Binary space saved:':<28} "
+                f"{actual_saving:>8.2f}%"
+            )
 
             if actual_output_size < original_size:
-                print()
-                print("Binary file is smaller than the original file.")
+                print("\nBinary file is smaller than the original file.")
+
             elif actual_output_size == original_size:
-                print()
-                print("Binary file is the same size as the original file.")
-            else:
-                print()
                 print(
-                    "Binary file is larger than the original file. "
-                    "This happens on very small or almost-unique texts "
-                    "because the symbol table still has to be stored."
+                    "\nBinary file is the same size as the original file."
                 )
+
+            else:
+                print(
+                    "\nBinary file is larger than the original file. "
+                    "This can happen with small files because metadata "
+                    "must also be stored."
+                )
+
         else:
             print("Compression ratio: N/A (empty input file)")
 
@@ -139,8 +172,10 @@ def compress_file() -> None:
         else:
             print(f"{'Symbols grouped into Others:':<28} None")
 
-        print(f"{'Probability threshold:':<28} "
-              f"{result.minimum_probability_limit:.2%}")
+        print(
+            f"{'Probability threshold:':<28} "
+            f"{result.minimum_probability_limit:.2%}"
+        )
 
         print(SEPARATOR)
         print("Compression completed successfully.")
@@ -150,52 +185,62 @@ def compress_file() -> None:
 
 
 def decompress_file() -> None:
-    """Ask for a .mhuf file and restore the original text."""
+    """Select a compressed file and restore the original data."""
 
-    input_path = input(
-        "\nEnter the path of the compressed .mhuf file: "
-    ).strip().strip('"')
+    print("\nSelect the compressed .mhuf file.")
+
+    input_path = select_compressed_input()
 
     if not input_path:
-        print("\nError: No input file path provided.")
+        print("\nFile selection cancelled.")
         return
 
     input_file = Path(input_path)
 
     if not input_file.is_file():
-        print("\nError: The input file does not exist.")
+        print("\nError: The compressed file does not exist.")
         return
 
-    if input_file.suffix.lower() != COMPRESSED_EXTENSION:
-        print(f"\nError: Compressed files must end with {COMPRESSED_EXTENSION}.")
+    if input_file.suffix.lower() != COMPRESSED_EXTENSION.lower():
+        print(
+            f"\nError: Compressed files must end with "
+            f"{COMPRESSED_EXTENSION}."
+        )
         return
 
-    output_path = input(
-        "Enter the output path for the recovered text "
-        "(e.g. examples/recovered.txt): "
-    ).strip().strip('"')
+    print("\nSelect where to save the recovered file.")
+
+    output_path = select_decompressed_output()
 
     if not output_path:
-        print("\nError: No output path provided.")
+        print("\nSaving cancelled.")
         return
 
     output_file = Path(output_path)
 
     try:
+        # Prevent overwriting the compressed input file.
         if input_file.resolve() == output_file.resolve():
             print("\nError: Output path must differ from input path.")
             return
 
+        # Create the output directory if necessary.
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+
+        # Decode the binary file and save the recovered data.
         text = decompress_file_to_path(input_file, output_file)
+
         compressed_size = input_file.stat().st_size
         recovered_size = output_file.stat().st_size
 
         print_header("DECOMPRESSION RESULTS")
+
         print(f"{'Input file:':<28} {input_file}")
         print(f"{'Output file:':<28} {output_file}")
         print(f"{'Compressed size:':<28} {compressed_size:,} bytes")
         print(f"{'Recovered size:':<28} {recovered_size:,} bytes")
         print(f"{'Recovered symbols:':<28} {len(text):,}")
+
         print(SEPARATOR)
         print("Decompression completed successfully.")
         print("The recovered file should match the original text.")
@@ -209,9 +254,11 @@ def main() -> None:
 
     while True:
         print_header("MODIFIED HUFFMAN COMPRESSION")
+
         print("  1. Compress a file")
         print("  2. Decompress a file")
         print("  0. Exit")
+
         print(SUB_SEPARATOR)
 
         choice = input("Choose an option: ").strip()
